@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Passalong.Api/Passalong.Api.csproj" />
+    <Project Path="src/Passalong.Application/Passalong.Application.csproj" />
+    <Project Path="src/Passalong.Core/Passalong.Core.csproj" />
+    <Project Path="src/Passalong.Infrastructure/Passalong.Infrastructure.csproj" />
+  </Folder>
+</Solution>

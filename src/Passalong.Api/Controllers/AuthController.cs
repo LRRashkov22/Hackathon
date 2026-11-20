@@ -1,0 +1,8 @@
+using System.IdentityModel.Tokens.Jwt; using System.Security.Claims; using System.Text; using Microsoft.AspNetCore.Identity; using Microsoft.AspNetCore.Mvc; using Microsoft.IdentityModel.Tokens; using Passalong.Api.Contracts; using Passalong.Core.Entities;
+namespace Passalong.Api.Controllers;
+[ApiController, Route("api/auth")] public class AuthController(UserManager<ApplicationUser> users, IConfiguration config) : ControllerBase
+{
+ [HttpPost("register")] public async Task<IActionResult> Register(RegisterRequest x) { var u = new ApplicationUser { UserName=x.Email, Email=x.Email, DisplayName=x.DisplayName, Location=x.Location }; var r=await users.CreateAsync(u,x.Password); return r.Succeeded ? Ok(new { token=Token(u), user=new { u.Id,u.DisplayName,u.Email }}) : BadRequest(r.Errors); }
+ [HttpPost("login")] public async Task<IActionResult> Login(LoginRequest x) { var u=await users.FindByEmailAsync(x.Email); if(u is null || !await users.CheckPasswordAsync(u,x.Password)) return Unauthorized(); return Ok(new { token=Token(u), user=new { u.Id,u.DisplayName,u.Email }}); }
+ string Token(ApplicationUser u) { var key=config["Jwt:Key"] ?? "development-only-change-this-key-to-a-secure-secret-32"; var c=new[] { new Claim(ClaimTypes.NameIdentifier,u.Id.ToString()),new Claim(ClaimTypes.Email,u.Email!),new Claim(ClaimTypes.Name,u.DisplayName) }; return new JwtSecurityTokenHandler().WriteToken(new JwtSecurityToken(config["Jwt:Issuer"]??"passalong",config["Jwt:Audience"]??"passalong",c,expires:DateTime.UtcNow.AddHours(8),signingCredentials:new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),SecurityAlgorithms.HmacSha256))); }
+}
