@@ -1,3 +1,16 @@
-using Microsoft.AspNetCore.Mvc; using Microsoft.EntityFrameworkCore; using Passalong.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
+using Passalong.Application.DTOs.Categories;
+using Passalong.Application.Services.Contracts;
+
 namespace Passalong.Api.Controllers;
-[ApiController, Route("api/categories")] public class CategoriesController(PassalongDbContext db):ControllerBase { [HttpGet] public Task<List<object>> Get()=>db.Categories.OrderBy(x=>x.Name).Select(x=>(object)new{x.Id,x.Name,x.Description,x.Icon}).ToListAsync(); }
+
+[ApiController]
+[Route("api/categories")]
+public class CategoriesController(ICategoryService categories) : ApiControllerBase
+{
+    [HttpGet]
+    public Task<List<CategoryDto>> Get()
+    {
+        return categories.GetAllAsync();
+    }
+}

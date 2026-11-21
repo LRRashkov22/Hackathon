@@ -1,3 +1,17 @@
-using Microsoft.AspNetCore.Mvc;using Microsoft.EntityFrameworkCore;using Passalong.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
+using Passalong.Application.Services.Contracts;
+
 namespace Passalong.Api.Controllers;
-[ApiController,Route("api/users")]public class UsersController(PassalongDbContext db):ControllerBase{[HttpGet("{id:guid}")]public async Task<IActionResult>Get(Guid id){var u=await db.Users.FindAsync(id);if(u is null)return NotFound();var listings=await db.Listings.Where(x=>x.OwnerId==id).Select(x=>new{x.Id,x.Title,x.Status}).ToListAsync();var reviews=await db.Reviews.Where(x=>x.ReviewedUserId==id).OrderByDescending(x=>x.CreatedAt).Select(x=>new{x.Rating,x.Comment,x.CreatedAt}).ToListAsync();return Ok(new{u.Id,u.DisplayName,u.Bio,u.Location,u.AvatarUrl,u.ReputationScore,listings,reviews});}}
+
+[ApiController]
+[Route("api/users")]
+public class UsersController(IUserService users) : ApiControllerBase
+{
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Get(Guid id)
+    {
+        var profile = await users.GetProfileAsync(id);
+
+        return profile is null ? NotFound() : Ok(profile);
+    }
+}

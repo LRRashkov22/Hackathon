@@ -1,3 +1,28 @@
-using Microsoft.AspNetCore.Mvc;using Microsoft.EntityFrameworkCore;using Passalong.Core.Enums;using Passalong.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
+using Passalong.Application.DTOs.Community;
+using Passalong.Application.Services.Contracts;
+
 namespace Passalong.Api.Controllers;
-[ApiController,Route("api")]public class CommunityController(PassalongDbContext db):ControllerBase{[HttpGet("impact/summary")]public async Task<object>Impact()=>new{completedTransfers=await db.Transfers.CountAsync(),itemsReused=await db.Transfers.Select(x=>x.ListingId).Distinct().CountAsync(),activeListings=await db.Listings.CountAsync(x=>x.Status==ListingStatus.Available),members=await db.Users.CountAsync()};[HttpGet("leaderboard")]public async Task<object>Leaderboard()=>await db.Users.OrderByDescending(x=>x.ReputationScore).Take(10).Select(x=>new{x.Id,x.DisplayName,x.ReputationScore,x.Location}).ToListAsync();[HttpGet("items/{id:guid}/history")]public async Task<IActionResult>History(Guid id){var list=await (from t in db.Transfers join old in db.Users on t.PreviousOwnerId equals old.Id join next in db.Users on t.NewOwnerId equals next.Id where t.ListingId==id orderby t.CompletedAt select new{t.Id,t.CompletedAt,previousOwner=old.DisplayName,newOwner=next.DisplayName}).ToListAsync();return Ok(list);}}
+
+[ApiController]
+[Route("api")]
+public class CommunityController(ICommunityService community) : ApiControllerBase
+{
+    [HttpGet("impact/summary")]
+    public Task<ImpactSummaryDto> Impact()
+    {
+        return community.GetImpactSummaryAsync();
+    }
+
+    [HttpGet("leaderboard")]
+    public Task<List<LeaderboardEntryDto>> Leaderboard()
+    {
+        return community.GetLeaderboardAsync();
+    }
+
+    [HttpGet("items/{id:guid}/history")]
+    public async Task<IActionResult> History(Guid id)
+    {
+        return Ok(await community.GetItemHistoryAsync(id));
+    }
+}
