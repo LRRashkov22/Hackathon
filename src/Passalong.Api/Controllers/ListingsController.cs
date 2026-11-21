@@ -1,9 +1,56 @@
-using System.Security.Claims; using Microsoft.AspNetCore.Authorization; using Microsoft.AspNetCore.Mvc; using Microsoft.EntityFrameworkCore; using Passalong.Api.Contracts; using Passalong.Core.Entities; using Passalong.Core.Enums; using Passalong.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Passalong.Application.DTOs.Listings;
+using Passalong.Application.Services.Contracts;
+using Passalong.Core.Entities;
+using Passalong.Core.Enums;
+
 namespace Passalong.Api.Controllers;
-[ApiController, Route("api/listings")] public class ListingsController(PassalongDbContext db) : ControllerBase
+
+[ApiController]
+[Route("api/listings")]
+public class ListingsController(IListingService listings) : ApiControllerBase
 {
- [HttpGet] public async Task<IActionResult> Browse(string? search, Guid? categoryId, ExchangeType? exchangeType, ListingCondition? condition, int page=1,int pageSize=12) { var q=db.Listings.Include(x=>x.Images).Include(x=>x.Category).Include(x=>x.Owner).Where(x=>x.Status==ListingStatus.Available);var claim=User.FindFirstValue(ClaimTypes.NameIdentifier);if(Guid.TryParse(claim,out var currentUser))q=q.Where(x=>x.OwnerId!=currentUser); if(!string.IsNullOrWhiteSpace(search)) q=q.Where(x=>EF.Functions.ILike(x.Title,$"%{search}%")); if(categoryId.HasValue)q=q.Where(x=>x.CategoryId==categoryId); if(exchangeType.HasValue)q=q.Where(x=>x.ExchangeType==exchangeType); if(condition.HasValue)q=q.Where(x=>x.Condition==condition); var total=await q.CountAsync(); return Ok(new {total,page,pageSize,items=await q.OrderByDescending(x=>x.CreatedAt).Skip((page-1)*pageSize).Take(pageSize).Select(x=>new{x.Id,x.Title,x.Description,x.Condition,x.ExchangeType,x.Location,x.CreatedAt,category=x.Category.Name,owner=new{x.Owner.Id,x.Owner.DisplayName},images=x.Images.OrderBy(i=>i.DisplayOrder).Select(i=>i.ImageUrl)}).ToListAsync()}); }
- [HttpGet("{id:guid}")] public async Task<IActionResult> Get(Guid id) { var x=await db.Listings.Include(x=>x.Images).Include(x=>x.Category).Include(x=>x.Owner).FirstOrDefaultAsync(x=>x.Id==id); return x is null?NotFound():Ok(x); }
- [Authorize, HttpGet("mine")] public Task<List<Listing>> Mine() { var uid=Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!); return db.Listings.Include(x=>x.Images).Include(x=>x.Category).Where(x=>x.OwnerId==uid).OrderByDescending(x=>x.CreatedAt).ToListAsync(); }
- [Authorize, HttpPost] public async Task<IActionResult> Create(CreateListingRequest x) { var uid=Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!); if(!await db.Categories.AnyAsync(c=>c.Id==x.CategoryId))return BadRequest("Unknown category."); if(x.ExchangeType==ExchangeType.Swap&&string.IsNullOrWhiteSpace(x.DesiredSwap))return BadRequest("Describe what you want in return for a swap."); var l=new Listing{OwnerId=uid,CategoryId=x.CategoryId,Title=x.Title,Description=x.Description,Condition=x.Condition,ExchangeType=x.ExchangeType,DesiredSwap=x.DesiredSwap,Location=x.Location,Images=(x.ImageUrls??[]).Select((url,i)=>new ListingImage{ImageUrl=url,DisplayOrder=i}).ToList()};db.Listings.Add(l);await db.SaveChangesAsync();return CreatedAtAction(nameof(Get),new{id=l.Id},new{id=l.Id,l.Title,l.Description,l.Condition,l.ExchangeType,l.DesiredSwap,l.Location,l.Status,l.CreatedAt,imageUrls=l.Images.OrderBy(i=>i.DisplayOrder).Select(i=>i.ImageUrl)}); }
+    [HttpGet]
+    public async Task<IActionResult> Browse(
+        string? search,
+        Guid? categoryId,
+        ExchangeType? exchangeType,
+        ListingCondition? condition,
+        int page = 1,
+        int pageSize = 12)
+    {
+        var query = new BrowseListingsQuery(search, categoryId, exchangeType, condition, page, pageSize);
+
+        return Ok(await listings.BrowseAsync(query, OptionalCurrentUserId));
+    }
+
+    [HttpGet("{id:guid}")]
+    public async Task<IActionResult> Get(Guid id)
+    {
+        var x = await listings.GetAsync(id);
+
+        return x is null ? NotFound() : Ok(x);
+    }
+
+    [Authorize]
+    [HttpGet("mine")]
+    public Task<List<Listing>> Mine()
+    {
+        return listings.GetMineAsync(CurrentUserId);
+    }
+
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> Create(CreateListingRequest x)
+    {
+        var result = await listings.CreateAsync(CurrentUserId, x);
+
+        if (!result.IsSuccess)
+        {
+            return Failure(result.Error);
+        }
+
+        return CreatedAtAction(nameof(Get), new { id = result.Value.Id }, result.Value);
+    }
 }

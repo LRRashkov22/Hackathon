@@ -1,6 +1,34 @@
-using System.Security.Claims;using Microsoft.AspNetCore.Authorization;using Microsoft.AspNetCore.Mvc;using Microsoft.EntityFrameworkCore;using Passalong.Api.Contracts;using Passalong.Core.Entities;using Passalong.Core.Enums;using Passalong.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Passalong.Application.DTOs.WantedItems;
+using Passalong.Application.Services.Contracts;
+using Passalong.Core.Entities;
+
 namespace Passalong.Api.Controllers;
-[ApiController,Route("api/wanted-items")]public class WantedItemsController(PassalongDbContext db):ControllerBase{Guid Me=>Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-[Authorize,HttpPost]public async Task<IActionResult>Create(CreateWantedItemRequest x){var w=new WantedItem{UserId=Me,CategoryId=x.CategoryId,Title=x.Title,Description=x.Description,PreferredCondition=x.PreferredCondition,Location=x.Location};db.WantedItems.Add(w);await db.SaveChangesAsync();return Ok(w);}
-[Authorize,HttpGet("mine")]public Task<List<WantedItem>>Mine()=>db.WantedItems.Include(x=>x.Category).Where(x=>x.UserId==Me).ToListAsync();
-[HttpGet("{id:guid}/matches")]public async Task<IActionResult>Matches(Guid id){var w=await db.WantedItems.FindAsync(id);if(w is null)return NotFound();var words=w.Title.ToLower().Split(' ',StringSplitOptions.RemoveEmptyEntries);var all=await db.Listings.Include(x=>x.Category).Include(x=>x.Owner).Where(x=>x.Status==ListingStatus.Available).ToListAsync();var matches=all.Select(x=>new{listing=x,score=(x.CategoryId==w.CategoryId?50:0)+(words.Any(k=>x.Title.ToLower().Contains(k))?25:0)+(w.PreferredCondition==x.Condition?15:0)+(string.Equals(w.Location,x.Location,StringComparison.OrdinalIgnoreCase)?10:0)}).Where(x=>x.score>0).OrderByDescending(x=>x.score).Select(x=>new{x.score,listing=new{x.listing.Id,x.listing.Title,x.listing.Description,x.listing.Location,x.listing.Condition,x.listing.ExchangeType,category=x.listing.Category.Name,owner=x.listing.Owner.DisplayName}});return Ok(matches);}}
+
+[ApiController]
+[Route("api/wanted-items")]
+public class WantedItemsController(IWantedItemService wantedItems) : ApiControllerBase
+{
+    [Authorize]
+    [HttpPost]
+    public async Task<IActionResult> Create(CreateWantedItemRequest x)
+    {
+        return Ok(await wantedItems.CreateAsync(CurrentUserId, x));
+    }
+
+    [Authorize]
+    [HttpGet("mine")]
+    public Task<List<WantedItem>> Mine()
+    {
+        return wantedItems.GetMineAsync(CurrentUserId);
+    }
+
+    [HttpGet("{id:guid}/matches")]
+    public async Task<IActionResult> Matches(Guid id)
+    {
+        var matches = await wantedItems.GetMatchesAsync(id);
+
+        return matches is null ? NotFound() : Ok(matches);
+    }
+}
