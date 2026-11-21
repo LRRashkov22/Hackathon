@@ -4,9 +4,9 @@ Community platform for giving away and swapping useful physical items — withou
 
 ## What is implemented
 
-PASSALONG currently has a usable MVP backed by Neon PostgreSQL.
+PASSALONG currently has a usable MVP backed by SQLite.
 
-- ASP.NET Core API with EF Core migrations, PostgreSQL, ASP.NET Identity and JWT authentication.
+- ASP.NET Core API with EF Core migrations, SQLite, ASP.NET Identity and JWT authentication.
 - React + TypeScript frontend with standalone Login, Register, Dashboard, Create, My Posts, Wanted Items and Community pages.
 - Public listing discovery with search, categories, Give Away/Swap types and authenticated exclusion of the current user's listings.
 - Create listings and wanted items; Swap listings require a description of what the owner wants in return.
@@ -32,7 +32,7 @@ PASSALONG currently has a usable MVP backed by Neon PostgreSQL.
 Set these values as environment variables before starting the API. Do not commit them.
 
 ```text
-ConnectionStrings__DefaultConnection=Host=...;Database=neondb;Username=...;Password=...;SSL Mode=Require
+ConnectionStrings__DefaultConnection=Data Source=passalong.db
 Jwt__Key=<a-long-random-secret-at-least-32-characters>
 Jwt__Issuer=passalong
 Jwt__Audience=passalong
