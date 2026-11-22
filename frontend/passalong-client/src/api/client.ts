@@ -1,7 +1,7 @@
 import { clearSession, getToken } from '../auth/session'
 
 /** Base URL of the API. In dev it is proxied by Vite (see vite.config.ts); override with VITE_API_URL. */
-const API_URL: string = import.meta.env.VITE_API_URL ?? '/api'
+export const API_URL: string = import.meta.env.VITE_API_URL ?? '/api'
 
 export class ApiError extends Error {
   readonly status: number
@@ -73,7 +73,10 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     headers.Authorization = `Bearer ${token}`
   }
 
-  if (body !== undefined) {
+  // For FormData the browser sets the multipart Content-Type (with boundary) itself.
+  const isForm = body instanceof FormData
+
+  if (body !== undefined && !isForm) {
     headers['Content-Type'] = 'application/json'
   }
 
@@ -83,7 +86,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     response = await fetch(`${API_URL}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
     })
   } catch {
     throw new ApiError(0, 'Cannot reach the server. Check that the API is running.')

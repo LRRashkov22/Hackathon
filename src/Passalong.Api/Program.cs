@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.FileProviders;
 using Microsoft.IdentityModel.Tokens;
+using Passalong.Api.Services;
 using Passalong.Application;
 using Passalong.Infrastructure;
 using Passalong.Infrastructure.Authentication;
@@ -29,6 +31,7 @@ builder.Services
     });
 
 builder.Services.AddAuthorization();
+builder.Services.AddSingleton<ImageUploadService>();
 
 builder.Services
     .AddControllers()
@@ -52,6 +55,11 @@ await app.Services.InitializeDatabaseAsync();
 app.UseSwagger();
 app.UseSwaggerUI();
 app.UseCors();
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(app.Services.GetRequiredService<ImageUploadService>().RootPath),
+    RequestPath = ImageUploadService.RequestPath
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

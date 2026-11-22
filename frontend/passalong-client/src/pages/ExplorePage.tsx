@@ -7,7 +7,7 @@ import { EXCHANGE_TYPES, LISTING_CONDITIONS } from '../api/types'
 import RequestDialog from '../components/RequestDialog'
 import SiteHeader from '../components/SiteHeader'
 import { getToken } from '../auth/session'
-import { conditionLabel, errorMessage, exchangeTypeLabel, PLACEHOLDER_IMAGE } from '../utils/format'
+import { conditionLabel, errorMessage, exchangeTypeLabel, imageSrc, PLACEHOLDER_IMAGE } from '../utils/format'
 import '../styles/App.css'
 import '../styles/components.css'
 
@@ -152,7 +152,7 @@ export default function ExplorePage() {
             {result?.items.map((item) => (
               <article key={item.id}>
                 <Link to={`/listings/${item.id}`}>
-                  <img src={item.images[0] ?? PLACEHOLDER_IMAGE} alt="" />
+                  <img src={imageSrc(item.images[0] ?? PLACEHOLDER_IMAGE)} alt="" />
                 </Link>
                 <small>
                   {item.exchangeType === 'GiveAway' ? 'GIVE AWAY' : 'SWAP'} · {item.category}

@@ -10,6 +10,7 @@ import {
   errorMessage,
   exchangeTypeLabel,
   formatDate,
+  imageSrc,
   PLACEHOLDER_IMAGE,
 } from '../utils/format'
 import '../styles/FeaturePages.css'
@@ -41,7 +42,7 @@ export default function ListingDetailPage() {
 
   const isOwner = Boolean(listing && user && listing.ownerId === user.id)
   const canRequest = Boolean(listing && listing.status === 'Available' && !isOwner)
-  const images = listing?.images.length ? listing.images.map((image) => image.imageUrl) : [PLACEHOLDER_IMAGE]
+  const images = listing?.images.length ? listing.images.map((image) => imageSrc(image.imageUrl)) : [PLACEHOLDER_IMAGE]
 
   const startRequest = () => {
     if (!getToken()) {
