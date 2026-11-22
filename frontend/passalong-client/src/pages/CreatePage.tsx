@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { categoriesApi, listingsApi, wantedItemsApi } from '../api/endpoints'
+import { categoriesApi, imagesApi, listingsApi, wantedItemsApi } from '../api/endpoints'
 import type { Category, ExchangeType, ListingCondition } from '../api/types'
 import { LISTING_CONDITIONS } from '../api/types'
 import SiteHeader from '../components/SiteHeader'
@@ -13,6 +13,8 @@ import '../styles/components.css'
 type Kind = 'listing' | 'wanted'
 
 const NO_PREFERENCE = ''
+const MAX_PHOTOS = 6
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024
 
 export default function CreatePage() {
   const navigate = useNavigate()
@@ -26,7 +28,7 @@ export default function CreatePage() {
   const [condition, setCondition] = useState<ListingCondition | typeof NO_PREFERENCE>('Good')
   const [exchangeType, setExchangeType] = useState<ExchangeType>('GiveAway')
   const [desiredSwap, setDesiredSwap] = useState('')
-  const [imageUrl, setImageUrl] = useState('')
+  const [photos, setPhotos] = useState<File[]>([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -35,6 +37,23 @@ export default function CreatePage() {
       categoriesApi.list().then(setCategories).catch((e) => setError(errorMessage(e)))
     }
   }, [signedIn])
+
+  const previews = useMemo(() => photos.map((file) => URL.createObjectURL(file)), [photos])
+
+  useEffect(() => () => previews.forEach((url) => URL.revokeObjectURL(url)), [previews])
+
+  const addPhotos = (selected: FileList | null) => {
+    const files = Array.from(selected ?? [])
+    const tooBig = files.find((file) => file.size > MAX_PHOTO_BYTES)
+
+    if (tooBig) {
+      setError(`"${tooBig.name}" is larger than 5 MB.`)
+      return
+    }
+
+    setError('')
+    setPhotos((current) => [...current, ...files].slice(0, MAX_PHOTOS))
+  }
 
   const switchKind = (next: Kind) => {
     setKind(next)
@@ -49,6 +68,7 @@ export default function CreatePage() {
 
     try {
       if (kind === 'listing') {
+        const uploaded = photos.length > 0 ? (await imagesApi.upload(photos)).urls : []
         const created = await listingsApi.create({
           categoryId,
           title,
@@ -57,7 +77,7 @@ export default function CreatePage() {
           exchangeType,
           desiredSwap: exchangeType === 'Swap' ? desiredSwap : null,
           location,
-          imageUrls: [imageUrl.trim() || PLACEHOLDER_IMAGE],
+          imageUrls: uploaded.length > 0 ? uploaded : [PLACEHOLDER_IMAGE],
         })
 
         navigate(`/listings/${created.id}`)
@@ -156,15 +176,37 @@ export default function CreatePage() {
             </label>
           )}
           {kind === 'listing' && (
-            <label>
-              Photo URL (optional)
-              <input
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://…"
-              />
-            </label>
+            <div className="photos">
+              <label>
+                Photos (optional, up to {MAX_PHOTOS}, 5 MB each)
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
+                  disabled={photos.length >= MAX_PHOTOS}
+                  onChange={(e) => {
+                    addPhotos(e.target.files)
+                    e.target.value = ''
+                  }}
+                />
+              </label>
+              {previews.length > 0 && (
+                <ul className="photo-previews">
+                  {previews.map((src, index) => (
+                    <li key={src}>
+                      <img src={src} alt={`Photo ${index + 1}`} />
+                      <button
+                        type="button"
+                        aria-label={`Remove photo ${index + 1}`}
+                        onClick={() => setPhotos((current) => current.filter((_, i) => i !== index))}
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           )}
           <button className="submit" disabled={busy}>
             {kind === 'listing' ? 'Publish item' : 'Publish wanted item'}

@@ -104,3 +104,13 @@ export const communityApi = {
 
   itemHistory: (listingId: string) => request<TransferHistoryEntry[]>(`/items/${listingId}/history`),
 }
+
+// POST /api/images (multipart, field "files") -> { urls }
+export const imagesApi = {
+  upload: (files: File[]) => {
+    const form = new FormData()
+    files.forEach((file) => form.append('files', file))
+
+    return request<{ urls: string[] }>('/images', { method: 'POST', body: form })
+  },
+}

@@ -1,3 +1,4 @@
+import { API_URL } from '../api/client'
 import type { ExchangeType, ListingCondition } from '../api/types'
 
 export const PLACEHOLDER_IMAGE =
@@ -28,4 +29,9 @@ export function formatDate(value: string): string {
 
 export function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Something went wrong.'
+}
+
+/** Uploaded pictures come back as "/api/uploads/…"; point them at the API when it is hosted elsewhere. */
+export function imageSrc(url: string): string {
+  return url.startsWith('/api/') ? `${API_URL}${url.slice('/api'.length)}` : url
 }
